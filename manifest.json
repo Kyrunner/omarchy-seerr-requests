@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ky.seerr-requests",
   "name": "Seerr Requests",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "ky",
   "license": "MIT",
   "description": "Seerr requests awaiting approval: notifies on arrival, approves or declines in place.",
