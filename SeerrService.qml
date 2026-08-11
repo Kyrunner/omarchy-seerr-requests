@@ -19,6 +19,13 @@ Item {
   property bool truncated: false
   property bool stale: false          // last poll failed but we still have old data
 
+  // True only once a failure has persisted past the grace window, or when the
+  // problem is a configuration one, which is never transient. Panels render
+  // errors from this, not from !ok, so a cold boot stays quiet.
+  readonly property bool faulted: readiness.faulted
+                                  || svc.error === "not configured"
+                                  || svc.error === "bad config"
+
   // Which row is mid-action, and what went wrong if it did. Only one action can be
   // in flight: they are user-initiated one at a time, and serialising them keeps a
   // double-click from approving and declining the same request in either order.
@@ -40,7 +47,7 @@ Item {
     stdout: StdioCollector {
       onStreamFinished: {
         var raw = this.text ? this.text.trim() : ""
-        if (raw === "") { svc.stale = svc.count > 0; svc.ok = false; svc.error = "no output"; return }
+        if (raw === "") { svc.stale = svc.count > 0; svc.ok = false; svc.error = "no output"; readiness.failed(); return }
         try {
           var d = JSON.parse(raw)
           svc.ok = !!d.ok
@@ -50,11 +57,14 @@ Item {
             svc.requests = d.requests || []
             svc.truncated = !!d.truncated
             svc.stale = false
+            readiness.succeeded()
           } else {
             svc.stale = svc.count > 0   // keep last-known, mark it stale
+            readiness.failed()
           }
         } catch (e) {
           svc.ok = false; svc.error = "unparseable"; svc.stale = svc.count > 0
+          readiness.failed()
         }
       }
     }
@@ -101,11 +111,9 @@ Item {
   function approve(id) { act("approve", id) }
   function decline(id) { act("decline", id) }
 
-  Timer {
-    interval: Math.max(15, svc.refreshIntervalSec) * 1000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: svc.refresh()
+  Readiness {
+    id: readiness
+    refreshIntervalSec: Math.max(15, svc.refreshIntervalSec)
+    onPoll: svc.refresh()
   }
 }
