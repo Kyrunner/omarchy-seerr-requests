@@ -63,6 +63,30 @@ In the bar widget's settings (or `bar.layout` in `shell.json`):
 | `notifyOnNew` | true | Desktop notification when a new request appears |
 | `hideWhenEmpty` | true | Off keeps a dim widget in the bar at zero pending |
 
+## Dependencies
+
+Everything here is already present on a stock Omarchy install:
+
+| | |
+|---|---|
+| Jellyseerr | The server this talks to. Developed against **3.4.1**. |
+| `bash`, `curl` | Config parsing and every HTTP call |
+| `python3` | Poll logic and JSON. Standard library only — nothing to `pip install`. |
+| `libnotify` | `notify-send`, for the new-request toast. Missing it degrades to no toasts rather than breaking the poll. |
+
+The bar icon is an SVG, which needs `qt6-svg` — already a hard dependency of
+`quickshell`, so if the Omarchy shell runs at all, this renders.
+
+## Removing it
+
+```bash
+omarchy plugin remove ky.seerr-requests
+rm -rf ~/.config/omarchy-seerr ~/.local/state/omarchy-seerr
+```
+
+The plugin only ever writes inside `~/.local/state/omarchy-seerr/`. It reads its
+config and never edits it, and it touches no other file on your system.
+
 ## Debugging
 
 `backend.sh` is the only thing that talks to Jellyseerr, so it can be run
