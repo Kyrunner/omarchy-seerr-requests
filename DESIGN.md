@@ -1,9 +1,10 @@
 # ky.seerr-requests — design
 
-Bar widget that surfaces Jellyseerr requests awaiting approval, notifies when a
+Bar widget that surfaces Seerr requests awaiting approval, notifies when a
 new one arrives, and approves or declines them in place.
 
-Verified against Jellyseerr **3.4.1** on 2026-08-11.
+Verified against Seerr **3.4.1** on 2026-08-11. Seerr is the project formed by
+merging Overseerr and Jellyseerr; the API paths below are unchanged from both.
 
 ## Why a bar widget and not a service
 
@@ -15,13 +16,13 @@ same way `ky.jellyfin-nowplaying` polls every 10s — so it fires the notificati
 
 ## Structure
 
-Mirrors `ky.jellyfin-nowplaying`: one shell script owns all Jellyseerr I/O, the
+Mirrors `ky.jellyfin-nowplaying`: one shell script owns all Seerr I/O, the
 QML renders whatever the script prints. The script can be run and diffed over
 SSH; the widget can only be checked by eye on the owner's screen.
 
 ```
 manifest.json     bar-widget declaration + settings schema
-backend.sh        the ONLY thing that talks to Jellyseerr
+backend.sh        the ONLY thing that talks to Seerr
 Panel.qml         bar item + popup
 README.md         setup and behavior
 ```
@@ -58,7 +59,7 @@ resolution — runs only when `pending > 0` or the popup is open.
 
 ### The N+1, and why it is bounded
 
-A Jellyseerr request object carries `media.tmdbId` but **no title**:
+A Seerr request object carries `media.tmdbId` but **no title**:
 
 ```json
 {"id":42,"status":1,"type":"movie","createdAt":"2026-08-09T13:38:48.000Z",

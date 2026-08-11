@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Jellyseerr pending-request queue -> one compact JSON line on stdout.
+# Seerr pending-request queue -> one compact JSON line on stdout.
 #
-# The ONLY thing in this plugin that talks to Jellyseerr. Kept as a script, not QML,
+# The ONLY thing in this plugin that talks to Seerr. Kept as a script, not QML,
 # so it can be run and diffed over SSH — the widget itself can only be checked by
 # eye on the owner's screen.
 #

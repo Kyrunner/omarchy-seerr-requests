@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Poll Jellyseerr for requests awaiting approval; emit one JSON line.
+"""Poll Seerr for requests awaiting approval; emit one JSON line.
 
 Invoked only by backend.sh, which supplies credentials through the environment
 so the API key never lands in a process argument list (visible in `ps` to every
