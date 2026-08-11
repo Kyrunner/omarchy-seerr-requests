@@ -120,3 +120,10 @@ how the two-tier polling works, and where the N+1 on title lookups comes from.
 (Apache 2.0). The `seerr` orb was chosen over the `jellyseerr` jellyfish because
 the jellyfish is near-identical to the Jellyfin widget sitting beside it in the
 bar, and two purple jellyfish next to each other tell you nothing apart.
+
+## Preview image
+
+`preview.png` shows *Night of the Living Dead* (1968), which is in the public
+domain in the US — its original release prints omitted the copyright notice, so
+neither the film nor its poster art is under copyright. No studio artwork is
+reproduced anywhere in this repository.

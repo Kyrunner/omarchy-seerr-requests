@@ -61,8 +61,8 @@ resolution — runs only when `pending > 0` or the popup is open.
 A Jellyseerr request object carries `media.tmdbId` but **no title**:
 
 ```json
-{"id":140,"status":1,"type":"movie","createdAt":"2026-08-09T13:38:48.000Z",
- "media":{"tmdbId":329556,"mediaType":"movie"},"requestedBy":{"displayName":"chris"}}
+{"id":42,"status":1,"type":"movie","createdAt":"2026-08-09T13:38:48.000Z",
+ "media":{"tmdbId":10331,"mediaType":"movie"},"requestedBy":{"displayName":"user"}}
 ```
 
 Titles and posters need a follow-up `GET /api/v1/movie/{tmdbId}` or
@@ -80,7 +80,7 @@ day is resolved once rather than 1,440 times. Cache entries are immutable
 
 New pending request IDs fire one `notify-send`:
 
-> **Seerr request** — chris requested *Landmine Goes Click* (2015)
+> **Seerr request** — user requested *Night of the Living Dead* (1968)
 
 Seen IDs persist to `~/.local/state/omarchy-seerr/seen.json`. Without that, every
 shell restart re-toasts every pending request — the behavior that gets a plugin
