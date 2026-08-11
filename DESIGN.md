@@ -98,7 +98,7 @@ existing backlog.
 | 0 pending | hidden (configurable: dimmed logo, no badge) |
 | n pending | logo + accent-coloured badge with the count, `99+` above 99 |
 | failing < 45s, nothing known yet | hidden — the boot case, before the first poll lands |
-| failing < 45s, queue known | unchanged: last known count, popup marks it last-known |
+| failing < 45s, queue known | unchanged: last known count, unmarked — only the hover tooltip flags it as stale |
 | not configured | dimmed logo + red `!` badge, popup explains where the config goes |
 | unreachable / auth failed for 45s | dimmed logo + red `!` badge, popup names which |
 
@@ -126,9 +126,10 @@ window, and a suspend moves the clock by hours. A step forward is credited as on
 scheduled interval rather than an hour, so it cannot manufacture a fault; a step
 backward is credited the same way, so it cannot hide one.
 
-A widget that already holds data keeps showing it through a failing poll, marked
-last-known. Only a widget with nothing to show hides while undecided — which is
-the boot case, and never a mid-session one.
+A widget that already holds data keeps showing it through a failing poll,
+unmarked — only the hover tooltip flags it as stale until 45s makes it a fault,
+at which point the popup says so explicitly. Only a widget with nothing to show
+hides while undecided — which is the boot case, and never a mid-session one.
 
 ### Why a badge and not text beside the icon
 
