@@ -97,13 +97,38 @@ existing backlog.
 |-------|-----------|
 | 0 pending | hidden (configurable: dimmed logo, no badge) |
 | n pending | logo + accent-coloured badge with the count, `99+` above 99 |
+| failing < 45s, nothing known yet | hidden — the boot case, before the first poll lands |
+| failing < 45s, queue known | unchanged: last known count, popup marks it last-known |
 | not configured | dimmed logo + red `!` badge, popup explains where the config goes |
-| unreachable / auth failed | dimmed logo + red `!` badge, popup names which |
+| unreachable / auth failed for 45s | dimmed logo + red `!` badge, popup names which |
 
 Failure must not render as "no requests." A dead API key looking identical to a
 quiet queue is the failure mode that matters here — it fails silently and stays
 failed. So a fault changes *both* the colour and the glyph, and keeps its width
 in the bar rather than collapsing to zero the way an empty queue does.
+
+## The grace window
+
+The bar starts about ten seconds before WiFi associates, so the first poll of
+every boot fails. Rendering that is a lie with a red badge on it.
+
+`Readiness.qml` (logic in `Readiness.js`, tested with `node Readiness.test.js`)
+holds the rule, and it is uniform — there is no startup special case. While a
+poll is failing it retries every **5s** instead of the configured interval, and
+reports a **fault only after 45s of continuous failure**. One success anywhere in
+that window resets the clock. So a boot is quiet, a blip is quiet, and a genuinely
+dead server still speaks up within a minute.
+
+The 45s is measured as real elapsed time, accumulated one poll at a time with
+each interval sanity-checked against the delay that was actually scheduled. It
+has to be: `systemd-timesyncd` makes its first correction inside this very
+window, and a suspend moves the clock by hours. A step forward is credited as one
+scheduled interval rather than an hour, so it cannot manufacture a fault; a step
+backward is credited the same way, so it cannot hide one.
+
+A widget that already holds data keeps showing it through a failing poll, marked
+last-known. Only a widget with nothing to show hides while undecided — which is
+the boot case, and never a mid-session one.
 
 ### Why a badge and not text beside the icon
 

@@ -44,8 +44,11 @@ Item {
     onTriggered: root.poll()
   }
 
+  // The interval binding above is left alone: reassigning it here would destroy
+  // it, and retrySec is endpoint-dependent in at least one plugin, so the
+  // pre-first-decision cadence has to keep tracking it. advance() takes the
+  // interval over from the first outcome onwards.
   Component.onCompleted: {
-    timer.interval = Math.max(1, root.retrySec) * 1000
     timer.start()
     root.poll()
   }

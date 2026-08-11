@@ -45,13 +45,19 @@ omarchy plugin enable ky.seerr-requests
 | | |
 |---|---|
 | Bar | Seerr logo with a count badge — how many need approval. Hidden at zero. |
-| Bar, red `!` | Dimmed logo, red badge: something is wrong. Open the popup, it names which. |
+| Bar, red `!` | Dimmed logo, red badge: something has been wrong for 45s straight. Open the popup, it names which. |
 | Click | Open the queue |
 | ✓ / ✗ | Approve / decline, in place |
 | Click a title | Open that request in Seerr |
 | Middle-click | Refresh now |
 | `r` in popup | Refresh now |
 | `Esc` | Close |
+
+A failure is silent until it has lasted 45 seconds. Inside that window the poll
+retries every 5s and the widget keeps showing the last known queue, marked as
+last-known; if it has nothing yet — the usual case at boot, since the bar starts
+before WiFi associates — it shows nothing at all. Only 45s of *continuous*
+failure earns the red `!`, and one good poll clears it.
 
 ## Settings
 

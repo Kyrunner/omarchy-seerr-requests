@@ -20,9 +20,13 @@ Panel {
   // never appears. Empty queue -> zero width, which is how "quiet when there is
   // nothing to approve" is honestly expressed; a FAULT keeps its width, so broken
   // never looks like an empty queue. A failure that has NOT yet faulted is still
-  // undecided -- at boot the network is not up yet -- so it stays zero-width too.
+  // undecided, and stays zero-width ONLY while there is nothing to show -- which
+  // is the case at boot, before the first poll has ever landed. Once the widget
+  // holds requests it keeps showing them (marked stale) through a failing poll,
+  // so a mid-session blip cannot make it vanish, and approving a request cannot
+  // collapse the anchor the popout is hanging off.
   implicitWidth: (seerr.ok && seerr.pending === 0 && root.hideWhenEmpty)
-                 || (!seerr.ok && !seerr.faulted)
+                 || (!seerr.ok && !seerr.faulted && seerr.count === 0)
                  ? 0 : button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -83,7 +87,7 @@ Panel {
           sourceSize.height: 64
           fillMode: Image.PreserveAspectFit
           smooth: true
-          opacity: seerr.ok ? 1.0 : 0.55
+          opacity: seerr.faulted ? 0.55 : 1.0
         }
 
         // The count, or "!" when the poll is failing. A fault takes the urgent colour
@@ -97,7 +101,7 @@ Panel {
           height: Math.round(parent.height * 0.46)
           width: Math.max(height, badgeText.implicitWidth + Style.space(4))
           radius: height / 2
-          color: seerr.ok ? root.accent : root.urgent
+          color: seerr.faulted ? root.urgent : root.accent
           // Ring it in the bar's own background so the badge reads as sitting on top
           // of the logo rather than melting into the artwork underneath.
           border.width: 1
@@ -108,7 +112,7 @@ Panel {
             anchors.centerIn: parent
             // Past 99 the exact number stops being information and becomes a wall of
             // digits in a 20px slot.
-            text: seerr.ok ? (seerr.pending > 99 ? "99+" : String(seerr.pending)) : "!"
+            text: seerr.faulted ? "!" : (seerr.pending > 99 ? "99+" : String(seerr.pending))
             color: root.background
             font.family: root.fontFamily
             font.pixelSize: Math.round(badge.height * 0.7)
