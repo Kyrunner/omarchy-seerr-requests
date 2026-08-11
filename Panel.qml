@@ -19,8 +19,11 @@ Panel {
   // allocated zero width by the bar: it loads, runs, logs nothing fatal, and simply
   // never appears. Empty queue -> zero width, which is how "quiet when there is
   // nothing to approve" is honestly expressed; a FAULT keeps its width, so broken
-  // never looks like an empty queue.
-  implicitWidth: (seerr.ok && seerr.pending === 0 && root.hideWhenEmpty) ? 0 : button.implicitWidth
+  // never looks like an empty queue. A failure that has NOT yet faulted is still
+  // undecided -- at boot the network is not up yet -- so it stays zero-width too.
+  implicitWidth: (seerr.ok && seerr.pending === 0 && root.hideWhenEmpty)
+                 || (!seerr.ok && !seerr.faulted)
+                 ? 0 : button.implicitWidth
   implicitHeight: button.implicitHeight
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -88,7 +91,7 @@ Panel {
         // quiet queue -- the one failure here that otherwise hides itself perfectly.
         Rectangle {
           id: badge
-          visible: !seerr.ok || seerr.pending > 0
+          visible: seerr.faulted || seerr.pending > 0
           anchors.right: parent.right
           anchors.top: parent.top
           height: Math.round(parent.height * 0.46)
@@ -162,7 +165,7 @@ Panel {
           // problems with different fixes, so they are never collapsed into one.
           Text {
             Layout.fillWidth: true
-            visible: !seerr.ok
+            visible: seerr.faulted
             text: "Not available — " + seerr.error + (seerr.stale ? " (showing last known)" : "")
             color: root.urgent
             font.family: root.fontFamily
@@ -171,7 +174,7 @@ Panel {
 
           Text {
             Layout.fillWidth: true
-            visible: !seerr.ok && seerr.error === "not configured"
+            visible: seerr.faulted && seerr.error === "not configured"
             text: "Create ~/.config/omarchy-seerr/config.json with url, api_key and web_base."
             color: root.dim
             font.family: root.fontFamily
