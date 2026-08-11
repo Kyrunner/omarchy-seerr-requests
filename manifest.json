@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "ky.seerr-requests",
+  "name": "Seerr Requests",
+  "version": "0.1.0",
+  "author": "ky",
+  "license": "MIT",
+  "description": "Jellyseerr requests awaiting approval: notifies on arrival, approves or declines in place.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "Panel.qml" },
+  "barWidget": {
+    "displayName": "Seerr",
+    "description": "Shows how many Jellyseerr requests need approval, notifies when a new one arrives, and approves or declines them from the popup. Hidden while the queue is empty.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 60,
+      "notifyOnNew": true,
+      "hideWhenEmpty": true
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 15,
+        "max": 600,
+        "step": 15,
+        "defaultValue": 60
+      },
+      {
+        "key": "notifyOnNew",
+        "type": "boolean",
+        "label": "Notify when a new request arrives",
+        "defaultValue": true
+      },
+      {
+        "key": "hideWhenEmpty",
+        "type": "boolean",
+        "label": "Hide from the bar when nothing is pending",
+        "defaultValue": true
+      }
+    ]
+  }
+}
