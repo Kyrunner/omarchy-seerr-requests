@@ -21,10 +21,13 @@ Create `~/.config/omarchy-seerr/config.json`:
 ```json
 {
   "url": "http://192.168.1.10:5055",
-  "api_key": "<Settings → General → API Key in Seerr>",
+  "api_key": "PASTE_KEY_HERE",
   "web_base": "https://seerr.example.com"
 }
 ```
+
+Replace only the values on the right of each colon — the three field names must
+stay exactly as written. Get the key from Settings → General → API Key in Seerr.
 
 `chmod 600` it — the API key can approve requests.
 

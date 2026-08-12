@@ -45,6 +45,17 @@ LAN address. Falls back to `url` when unset — same split as the Jellyfin plugi
 
 Auth is the `X-Api-Key` header, not Jellyfin's `MediaBrowser Token=` scheme.
 
+`backend.sh` reads the three fields one per line and guards each on its own.
+That is deliberate, and the reason is a bug this plugin shipped: a space-separated
+`read -r URL API_KEY WEB_BASE` collapses whitespace runs, so a config with no
+`api_key` shifted `web_base` into its place, passed the non-empty check, and sent
+a URL as the credential. The server answered 401 and the widget said **auth
+failed** — pointing at a credential problem that did not exist while the real
+fault, a malformed config, went unnamed. Misreporting a fault is worse than
+reporting none: it sends the reader somewhere there is nothing to find.
+`bash backend-config.test.sh` covers the parse table against a stub server,
+including proving that the key on the wire is the key in the file.
+
 ## Polling: two tiers
 
 `GET /api/v1/request/count` returns counts only:

@@ -27,18 +27,37 @@ fail() { printf '{"ok":false,"error":"%s","pending":0,"requests":[]}\n' "$1"; ex
 # web_base is the address for BROWSER links; url stays the API endpoint. Separating
 # them keeps polling on the fast LAN path instead of crossing the public edge, while
 # a click still opens somewhere reachable away from home. Falls back to url when unset.
-read -r URL API_KEY WEB_BASE < <(python3 - "$CFG" <<'PY'
-import json,sys
+#
+# One field per line, and read one at a time. A space-separated `read -r A B C`
+# collapses runs of whitespace, so an empty middle field silently shifts the rest
+# along: a config missing `api_key` used to put web_base in its place, pass the
+# non-empty guard, and report "auth failed" — sending the reader after a
+# credential problem that did not exist. None of these values may contain a
+# newline, so line-delimiting is unambiguous.
+FIELDS=$(python3 - "$CFG" <<'PY'
+import json, sys
 try:
-    c=json.load(open(sys.argv[1]))
-    url=c.get("url","").rstrip("/")
-    print(url, c.get("api_key",""), (c.get("web_base") or url).rstrip("/"))
+    c = json.load(open(sys.argv[1]))
 except Exception:
-    print("", "", "")
+    sys.exit(1)
+if not isinstance(c, dict):
+    sys.exit(1)
+url = str(c.get("url") or "").strip().rstrip("/")
+# Stripped because an API key pasted from a web UI often carries a trailing
+# newline or space, which the server rejects as an invalid key.
+api_key = str(c.get("api_key") or "").strip()
+web_base = (str(c.get("web_base") or "").strip().rstrip("/")) or url
+print(url)
+print(api_key)
+print(web_base)
 PY
 ) || fail "bad config"
 
-[ -n "${URL:-}" ] && [ -n "${API_KEY:-}" ] || fail "bad config"
+{ IFS= read -r URL; IFS= read -r API_KEY; IFS= read -r WEB_BASE; } <<<"$FIELDS"
+
+# Guarded individually, so a missing field is reported as the config error it is.
+[ -n "${URL:-}" ] || fail "bad config"
+[ -n "${API_KEY:-}" ] || fail "bad config"
 
 # ---- actions -----------------------------------------------------------------
 # Approve/decline are a single POST each, so they stay in bash where curl lives.

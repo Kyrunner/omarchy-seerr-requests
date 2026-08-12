@@ -178,8 +178,14 @@ Panel {
 
           Text {
             Layout.fillWidth: true
-            visible: seerr.faulted && seerr.error === "not configured"
-            text: "Create ~/.config/omarchy-seerr/config.json with url, api_key and web_base."
+            // Both config faults get a next step. "bad config" means the file is
+            // there but unusable, which is a different fix from "write one".
+            visible: seerr.faulted
+                     && (seerr.error === "not configured" || seerr.error === "bad config")
+            text: seerr.error === "not configured"
+                  ? "Create ~/.config/omarchy-seerr/config.json with url, api_key and web_base."
+                  : "~/.config/omarchy-seerr/config.json needs a url and an api_key. "
+                    + "The field names must be exactly that — replace only the values."
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
