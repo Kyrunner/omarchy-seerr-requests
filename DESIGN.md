@@ -35,13 +35,24 @@ README.md         setup and behavior
 {
   "url": "http://192.168.1.10:5055",
   "api_key": "...",
-  "web_base": "https://seerr.example.com"
+  "web_base": "https://seerr.example.com",
+  "public_url": "https://seerr.example.com"
 }
 ```
 
 `url` is the LAN API path used for polling. `web_base` is only used to build
 browser links, so a click lands somewhere reachable away from home instead of a
 LAN address. Falls back to `url` when unset — same split as the Jellyfin plugin.
+
+`public_url` is the API fallback, same design as the NZBGet and Navidrome
+plugins: LAN first with a short timeout, public only on failure, the choice
+remembered in `~/.local/state/omarchy-seerr/endpoint.json` for 10 minutes so a
+poll away from home does not pay the LAN timeout every minute. It defaults to
+`web_base` because the public web UI is the same Seerr and serves the API too.
+Approve/decline moved from curl in `backend.sh` into `poll.py` so an action
+takes the same road as the poll that showed the request. Auth failures never
+fail over — retrying a bad key against the public edge is how you get banned by
+your own rate limiter.
 
 Auth is the `X-Api-Key` header, not Jellyfin's `MediaBrowser Token=` scheme.
 

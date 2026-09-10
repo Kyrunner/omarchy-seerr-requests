@@ -36,6 +36,18 @@ class H(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        got = self.headers.get("X-Api-Key", "")
+        with open(LOG, "w") as f:
+            f.write(got)
+        ok = got == KEY and self.path.startswith("/api/v1/request/")
+        body = json.dumps({"id": 7}).encode()
+        self.send_response(200 if ok else 401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, *a):
         pass
 
@@ -52,11 +64,12 @@ done
 pass=0
 fail=0
 
-run() { # name, expected-substring, config-json ("" means no config file at all)
+run() { # name, expected-substring, config-json ("" means no config file at all), [backend args...]
   local name="$1" want="$2" cfg="$3" out
+  shift 3
   rm -f "$WORK/seen-key.txt"
   if [ -z "$cfg" ]; then rm -f "$WORK/config.json"; else printf '%s' "$cfg" >"$WORK/config.json"; fi
-  out=$(OMARCHY_SEERR_CONFIG="$WORK/config.json" "$PLUGIN/backend.sh" 2>&1)
+  out=$(OMARCHY_SEERR_CONFIG="$WORK/config.json" "$PLUGIN/backend.sh" "$@" 2>&1)
   if [[ "$out" == *"$want"* ]]; then
     pass=$((pass + 1)); printf '  ok    %s\n' "$name"
   else
@@ -89,6 +102,28 @@ fi
 run "key pasted with stray whitespace" '"ok": true' "{\"url\":\"$U\",\"api_key\":\"  $GOOD_KEY \\n\"}"
 run "web_base absent falls back to url" '"ok": true' "{\"url\":\"$U\",\"api_key\":\"$GOOD_KEY\"}"
 run "trailing slash on url"  '"ok": true' "{\"url\":\"$U/\",\"api_key\":\"$GOOD_KEY\"}"
+
+# Nothing listens on port 1, so the LAN address fails fast and deterministically.
+DEAD="http://127.0.0.1:1"
+ENDPOINT="$WORK/state/omarchy-seerr/endpoint.json"
+
+echo "endpoint fallback:"
+rm -f "$ENDPOINT"
+run "LAN dead, public_url answers" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$U\"}"
+if grep -q '"which": *"public"' "$ENDPOINT" 2>/dev/null; then
+  pass=$((pass + 1)); echo "  ok    the public choice is remembered for the next poll"
+else
+  fail=$((fail + 1)); echo "  FAIL  endpoint.json does not record the public choice: $(cat "$ENDPOINT" 2>/dev/null)"
+fi
+run "an action follows the same fallback" '"ok":true,"id":7,"action":"approve"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$U\"}" approve 7
+rm -f "$ENDPOINT"
+run "public_url defaults to web_base" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"web_base\":\"$U\"}"
+rm -f "$ENDPOINT"
+run "LAN alive is reported as lan"  '"endpoint": "lan"' "{\"url\":\"$U\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$DEAD\"}"
+run "no public_url: LAN dead is still unreachable" '"error": "unreachable"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\"}"
+# A wrong key must never fail over: retrying bad credentials against a public
+# edge is how you get banned by your own rate limiter.
+run "a wrong key does not fail over" '"error": "auth failed"' "{\"url\":\"$U\",\"api_key\":\"nope\",\"public_url\":\"$DEAD\"}"
 
 echo
 if [ "$fail" -eq 0 ]; then

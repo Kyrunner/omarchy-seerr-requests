@@ -18,6 +18,7 @@ Item {
   property var requests: []
   property bool truncated: false
   property bool stale: false          // last poll failed but we still have old data
+  property string endpoint: ""        // "lan" or "public": which address answered
 
   // True only once a failure has persisted past the grace window, or when the
   // problem is a configuration one, which is never transient. Panels render
@@ -56,6 +57,7 @@ Item {
             svc.pending = d.pending || 0
             svc.requests = d.requests || []
             svc.truncated = !!d.truncated
+            svc.endpoint = d.endpoint ? String(d.endpoint) : ""
             svc.stale = false
             readiness.succeeded()
           } else {

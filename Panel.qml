@@ -156,13 +156,27 @@ Panel {
           width: parent.width
           spacing: Style.space(10)
 
-          Text {
+          RowLayout {
             Layout.fillWidth: true
-            text: "Seerr requests"
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.title
-            font.bold: true
+            spacing: Style.space(8)
+
+            Text {
+              Layout.fillWidth: true
+              text: "Seerr requests"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.title
+              font.bold: true
+            }
+            // Worth stating rather than leaving a mystery: on the public path
+            // the widget is reaching Seerr from outside the LAN.
+            Text {
+              visible: seerr.endpoint === "public"
+              text: "remote"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
           }
 
           // Fault state, worded. "unreachable" and "auth failed" are different

@@ -22,11 +22,12 @@ Create `~/.config/omarchy-seerr/config.json`:
 {
   "url": "http://192.168.1.10:5055",
   "api_key": "PASTE_KEY_HERE",
-  "web_base": "https://seerr.example.com"
+  "web_base": "https://seerr.example.com",
+  "public_url": "https://seerr.example.com"
 }
 ```
 
-Replace only the values on the right of each colon — the three field names must
+Replace only the values on the right of each colon — the field names must
 stay exactly as written. Get the key from Settings → General → API Key in Seerr.
 
 `chmod 600` it — the API key can approve requests.
@@ -36,6 +37,15 @@ stay exactly as written. Get the key from Settings → General → API Key in Se
 | `url` | API endpoint. Keep this on the LAN; it is polled all day. |
 | `api_key` | Seerr API key. Needs approve/decline rights. |
 | `web_base` | Address used only for browser links, so a click works away from home. Defaults to `url`. |
+| `public_url` | Optional. API address used only when `url` is unreachable, so the widget keeps working away from home. Defaults to `web_base`; set it to `""` if Seerr must never be polled from outside the LAN. |
+
+With a public address, the LAN one is tried first and the public one only on
+failure. That order matters: this widget polls all day, and pointing that at a
+public edge with a rate limiter or an IP-ban daemon is how you lock yourself out
+of your own server. After a fallback it stays on the public endpoint for 10
+minutes, then re-probes the LAN — so coming home restores the fast path on its
+own. The popup shows `remote` while on that path. A wrong API key never fails
+over: it is reported as `auth failed` from the first address that answers.
 
 Then enable it:
 
