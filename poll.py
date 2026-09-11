@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 URL = os.environ.get("SEERR_URL", "").rstrip("/")
@@ -54,6 +55,10 @@ PUBLIC_TIMEOUT = 10
 MAX_ITEMS = 50
 POSTER_BASE = "https://image.tmdb.org/t/p/w185"
 
+# A reply is read up to this many bytes and no further. The largest real one is a
+# page of MAX_ITEMS requests, a few hundred KB; anything past this is not Seerr.
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+
 
 def die(msg):
     print(json.dumps({"ok": False, "error": msg, "pending": 0, "requests": []}))
@@ -66,15 +71,42 @@ class AuthError(Exception):
     limiter."""
 
 
-def _call(base, path, method, timeout):
+class EndpointRefused(Exception):
+    """The endpoint is not one the key may be sent to, or its reply is not one we
+    will parse. The message is what the widget shows."""
+
+
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib copies request headers onto a redirected request, so following a 3xx
+    would replay X-Api-Key to wherever Location points. Returning None makes the
+    redirect surface as an HTTPError instead."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirects)
+
+
+def _call(which, base, path, method, timeout):
+    url = base + path
+    # The LAN address may be plain HTTP on a trusted network; the public one
+    # carries the key across the internet and must be HTTPS.
+    if which == "public" and urllib.parse.urlsplit(url).scheme != "https":
+        raise EndpointRefused("public_url must be https")
     req = urllib.request.Request(
-        base + path,
+        url,
         method=method,
         headers={"X-Api-Key": API_KEY, "Accept": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            raw = r.read().decode("utf-8")
+        with _OPENER.open(req, timeout=timeout) as r:
+            if r.geturl() != url:
+                raise EndpointRefused("redirected")
+            raw = r.read(MAX_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise EndpointRefused("response too large")
+            raw = raw.decode("utf-8")
             return json.loads(raw) if raw.strip() else {}
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
@@ -97,7 +129,7 @@ def api(path, method="GET"):
     """
     global _chosen
     if _chosen:
-        return _call(_chosen[1], path, method, _chosen[2])
+        return _call(_chosen[0], _chosen[1], path, method, _chosen[2])
 
     state = load_json(ENDPOINT_FILE, {})
     on_public = state.get("which") == "public"
@@ -112,7 +144,7 @@ def api(path, method="GET"):
     last = None
     for which, base, tmo in order:
         try:
-            result = _call(base, path, method, tmo)
+            result = _call(which, base, path, method, tmo)
             _chosen = (which, base, tmo)
             if which != state.get("which") or which == "public":
                 save_json(ENDPOINT_FILE, {"which": which, "since": time.time()})
@@ -143,6 +175,8 @@ def api_or_die(path):
         return api(path)
     except AuthError:
         die("auth failed")
+    except EndpointRefused as e:
+        die(str(e))
     except urllib.error.HTTPError as e:
         die("http %d" % e.code)
     except Exception:
@@ -238,6 +272,8 @@ def act(verb, req_id):
         api("/api/v1/request/%s/%s" % (req_id, verb), method="POST")
     except AuthError:
         out({"ok": False, "error": "auth failed"}, 1)
+    except EndpointRefused as e:
+        out({"ok": False, "error": str(e)}, 1)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             out({"ok": False, "error": "request %s is gone" % req_id}, 1)

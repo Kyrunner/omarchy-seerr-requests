@@ -19,9 +19,27 @@ PORT="${SEERR_TEST_PORT:-8791}"
 GOOD_KEY="realkey-abcdef0123456789"
 export STUB_KEY="$GOOD_KEY" STUB_LOG="$WORK/seen-key.txt" STUB_PORT="$PORT"
 
+# One plain stub, one TLS stub, and three hostile ones: a redirector, the host it
+# redirects to, and a server that answers with more bytes than any real reply.
+# The TLS cert is self-signed for 127.0.0.1 and trusted through SSL_CERT_FILE,
+# so the public-address path runs over real HTTPS rather than being faked.
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=127.0.0.1" \
+  -addext "subjectAltName=IP:127.0.0.1" -keyout "$WORK/key.pem" -out "$WORK/cert.pem" >/dev/null 2>&1
+export SSL_CERT_FILE="$WORK/cert.pem" STUB_CERT="$WORK/cert.pem" STUB_CERTKEY="$WORK/key.pem"
+TLS_PORT=$((PORT + 10)); REDIR_PORT=$((PORT + 11)); CATCH_PORT=$((PORT + 12)); BIG_PORT=$((PORT + 13))
+export TLS_PORT REDIR_PORT CATCH_PORT BIG_PORT CATCH_LOG="$WORK/caught-key.txt"
+
 python3 - <<'PY' &
-import http.server, json, os
-KEY = os.environ["STUB_KEY"]; LOG = os.environ["STUB_LOG"]
+import http.server, json, os, ssl, threading
+KEY = os.environ["STUB_KEY"]; LOG = os.environ["STUB_LOG"]; CATCH_LOG = os.environ["CATCH_LOG"]
+
+
+def reply(h, code, body):
+    h.send_response(code)
+    h.send_header("Content-Type", "application/json")
+    h.send_header("Content-Length", str(len(body)))
+    h.end_headers()
+    h.wfile.write(body)
 
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -29,36 +47,64 @@ class H(http.server.BaseHTTPRequestHandler):
         got = self.headers.get("X-Api-Key", "")
         with open(LOG, "w") as f:
             f.write(got)
-        body = json.dumps({"pending": 0}).encode()
-        self.send_response(200 if got == KEY else 401)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        reply(self, 200 if got == KEY else 401, json.dumps({"pending": 0}).encode())
 
     def do_POST(self):
         got = self.headers.get("X-Api-Key", "")
         with open(LOG, "w") as f:
             f.write(got)
         ok = got == KEY and self.path.startswith("/api/v1/request/")
-        body = json.dumps({"id": 7}).encode()
-        self.send_response(200 if ok else 401)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        reply(self, 200 if ok else 401, json.dumps({"id": 7}).encode())
 
     def log_message(self, *a):
         pass
 
 
-http.server.HTTPServer(("127.0.0.1", int(os.environ["STUB_PORT"])), H).serve_forever()
+class Redirect(H):
+    def _go(self):
+        self.send_response(302)
+        self.send_header("Location", "http://127.0.0.1:%s%s" % (os.environ["CATCH_PORT"], self.path))
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+    do_GET = do_POST = _go
+
+
+class Catch(H):
+    def _got(self):
+        with open(CATCH_LOG, "w") as f:
+            f.write(self.headers.get("X-Api-Key", ""))
+        reply(self, 200, json.dumps({"pending": 0, "id": 7}).encode())
+    do_GET = do_POST = _got
+
+
+class Big(H):
+    def do_GET(self):
+        reply(self, 200, b'{"pending": 0, "pad": "' + b"x" * (5 * 1024 * 1024) + b'"}')
+
+
+def serve(port, handler, tls=False):
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", int(port)), handler)
+    if tls:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(os.environ["STUB_CERT"], os.environ["STUB_CERTKEY"])
+        srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+
+serve(os.environ["STUB_PORT"], H)
+serve(os.environ["TLS_PORT"], H, tls=True)
+serve(os.environ["REDIR_PORT"], Redirect)
+serve(os.environ["CATCH_PORT"], Catch)
+serve(os.environ["BIG_PORT"], Big)
+threading.Event().wait()
 PY
 STUB_PID=$!
 
-for _ in $(seq 30); do
-  (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null && break
-  read -r -t 0.1 < /dev/zero 2>/dev/null || true
+for p in "$PORT" "$TLS_PORT" "$REDIR_PORT" "$CATCH_PORT" "$BIG_PORT"; do
+  for _ in $(seq 30); do
+    (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null && break
+    read -r -t 0.1 < /dev/zero 2>/dev/null || true
+  done
 done
 
 pass=0
@@ -78,6 +124,9 @@ run() { # name, expected-substring, config-json ("" means no config file at all)
 }
 
 U="http://127.0.0.1:$PORT"
+UT="https://127.0.0.1:$TLS_PORT"    # the public address must be HTTPS
+UR="http://127.0.0.1:$REDIR_PORT"
+UB="http://127.0.0.1:$BIG_PORT"
 
 echo "config errors are reported as config errors:"
 run "missing file"           '"error":"not configured"' ""
@@ -109,21 +158,43 @@ ENDPOINT="$WORK/state/omarchy-seerr/endpoint.json"
 
 echo "endpoint fallback:"
 rm -f "$ENDPOINT"
-run "LAN dead, public_url answers" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$U\"}"
+run "LAN dead, public_url answers" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$UT\"}"
 if grep -q '"which": *"public"' "$ENDPOINT" 2>/dev/null; then
   pass=$((pass + 1)); echo "  ok    the public choice is remembered for the next poll"
 else
   fail=$((fail + 1)); echo "  FAIL  endpoint.json does not record the public choice: $(cat "$ENDPOINT" 2>/dev/null)"
 fi
-run "an action follows the same fallback" '"ok":true,"id":7,"action":"approve"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$U\"}" approve 7
+run "an action follows the same fallback" '"ok":true,"id":7,"action":"approve"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$UT\"}" approve 7
 rm -f "$ENDPOINT"
-run "public_url defaults to web_base" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"web_base\":\"$U\"}"
+run "public_url defaults to web_base" '"endpoint": "public"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"web_base\":\"$UT\"}"
 rm -f "$ENDPOINT"
 run "LAN alive is reported as lan"  '"endpoint": "lan"' "{\"url\":\"$U\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$DEAD\"}"
 run "no public_url: LAN dead is still unreachable" '"error": "unreachable"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\"}"
 # A wrong key must never fail over: retrying bad credentials against a public
 # edge is how you get banned by your own rate limiter.
 run "a wrong key does not fail over" '"error": "auth failed"' "{\"url\":\"$U\",\"api_key\":\"nope\",\"public_url\":\"$DEAD\"}"
+
+# Marketplace review (2026-09-11): the key must never follow a redirect, never
+# travel to a public address over plain HTTP, and a reply is capped in size
+# before it is parsed.
+echo "public address safety:"
+rm -f "$ENDPOINT"
+run "an http:// public_url is refused" '"error": "public_url must be https"' "{\"url\":\"$DEAD\",\"api_key\":\"$GOOD_KEY\",\"public_url\":\"$U\"}"
+if [ ! -e "$WORK/seen-key.txt" ]; then
+  pass=$((pass + 1)); echo "  ok    the key was never sent to the plain-HTTP public address"
+else
+  fail=$((fail + 1)); echo "  FAIL  the key reached a plain-HTTP public address"
+fi
+rm -f "$ENDPOINT" "$CATCH_LOG"
+run "a redirect is refused, not followed" '"error": "http 302"' "{\"url\":\"$UR\",\"api_key\":\"$GOOD_KEY\"}"
+run "an action refuses a redirect too" '"error":"http 302"' "{\"url\":\"$UR\",\"api_key\":\"$GOOD_KEY\"}" approve 7
+if [ ! -e "$CATCH_LOG" ]; then
+  pass=$((pass + 1)); echo "  ok    the redirect target never received the key"
+else
+  fail=$((fail + 1)); echo "  FAIL  the redirect target received the key: '$(cat "$CATCH_LOG")'"
+fi
+rm -f "$ENDPOINT"
+run "an oversized response is refused" '"error": "response too large"' "{\"url\":\"$UB\",\"api_key\":\"$GOOD_KEY\"}"
 
 echo
 if [ "$fail" -eq 0 ]; then

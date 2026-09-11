@@ -37,7 +37,7 @@ stay exactly as written. Get the key from Settings → General → API Key in Se
 | `url` | API endpoint. Keep this on the LAN; it is polled all day. |
 | `api_key` | Seerr API key. Needs approve/decline rights. |
 | `web_base` | Address used only for browser links, so a click works away from home. Defaults to `url`. |
-| `public_url` | Optional. API address used only when `url` is unreachable, so the widget keeps working away from home. Defaults to `web_base`; set it to `""` if Seerr must never be polled from outside the LAN. |
+| `public_url` | Optional. API address used only when `url` is unreachable, so the widget keeps working away from home. Must be `https://`: the key is never sent to a public address over plain HTTP, never follows a redirect, and replies over 4 MiB are refused. Defaults to `web_base`; set it to `""` if Seerr must never be polled from outside the LAN. |
 
 With a public address, the LAN one is tried first and the public one only on
 failure. That order matters: this widget polls all day, and pointing that at a
