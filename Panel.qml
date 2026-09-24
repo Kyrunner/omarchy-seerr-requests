@@ -109,6 +109,7 @@ Panel {
 
           Text {
             id: badgeText
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             // Past 99 the exact number stops being information and becomes a wall of
             // digits in a 20px slot.
@@ -161,6 +162,7 @@ Panel {
             spacing: Style.space(8)
 
             Text {
+              textFormat: Text.PlainText
               Layout.fillWidth: true
               text: "Seerr requests"
               color: root.foreground
@@ -171,6 +173,7 @@ Panel {
             // Worth stating rather than leaving a mystery: on the public path
             // the widget is reaching Seerr from outside the LAN.
             Text {
+              textFormat: Text.PlainText
               visible: seerr.endpoint === "public"
               text: "remote"
               color: root.dim
@@ -182,6 +185,7 @@ Panel {
           // Fault state, worded. "unreachable" and "auth failed" are different
           // problems with different fixes, so they are never collapsed into one.
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             visible: seerr.faulted
             text: "Not available — " + seerr.error + (seerr.stale ? " (showing last known)" : "")
@@ -191,6 +195,7 @@ Panel {
           }
 
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             // Both config faults get a next step. "bad config" means the file is
             // there but unusable, which is a different fix from "write one".
@@ -207,6 +212,7 @@ Panel {
           }
 
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             visible: seerr.ok && seerr.pending === 0
             text: "Nothing waiting for approval."
@@ -216,6 +222,7 @@ Panel {
 
           // The last action's failure, kept visible until the next action succeeds.
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             visible: seerr.actionError !== ""
             text: "Action failed — " + seerr.actionError
@@ -255,6 +262,7 @@ Panel {
                 // Click the title to open the request in Seerr. The URL is built by
                 // the backend, so QML never needs to know the server address.
                 Text {
+                  textFormat: Text.PlainText
                   Layout.fillWidth: true
                   text: modelData.title + (modelData.year ? " (" + modelData.year + ")" : "")
                   color: titleMouse.containsMouse ? root.urgent : root.foreground
@@ -276,6 +284,7 @@ Panel {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   Layout.fillWidth: true
                   text: modelData.requested_by + " · " + root.fmtAge(modelData.created_at)
                         + (modelData.seasons ? " · " + modelData.seasons : "")
@@ -286,6 +295,7 @@ Panel {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   Layout.fillWidth: true
                   visible: parent.parent.busy || parent.parent.failed
                   text: parent.parent.busy ? "working…" : "did not go through"
@@ -320,6 +330,7 @@ Panel {
           // The count is always exact even when the list is capped; saying so beats
           // a list that quietly stops being the whole queue.
           Text {
+            textFormat: Text.PlainText
             Layout.fillWidth: true
             visible: seerr.truncated
             text: "Showing " + seerr.count + " of " + seerr.pending + " — open Seerr for the rest."

@@ -67,6 +67,10 @@ reporting none: it sends the reader somewhere there is nothing to find.
 `bash backend-config.test.sh` covers the parse table against a stub server,
 including proving that the key on the wire is the key in the file.
 
+Every Text element in every `.qml` file sets `textFormat: Text.PlainText`: titles
+and requester names come from Seerr, and Qt's default AutoText would read a
+markup-looking string as rich text. `bash plain-text.test.sh` enforces it.
+
 ## Polling: two tiers
 
 `GET /api/v1/request/count` returns counts only:
